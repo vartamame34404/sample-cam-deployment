@@ -232,9 +232,13 @@ def authenticate_admin_face(threshold: float = 0.6):
                 st.success("Admin authenticated successfully!")
                 st.session_state.admin_authenticated = True
                 st.session_state.authenticated_admin = verified_admin
+                st.session_state.face_verified = True
+                st.session_state.otp_verified = True
                 return True
+
             else:
                 st.error("Invalid OTP")
                 return False
 
     return False
+
