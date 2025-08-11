@@ -81,7 +81,7 @@ elif menu == "Decrypt and View":
             st.rerun()
 
     # Step 2: OTP verification
-    if st.session_state.get("face_verified") and not st.session_state.get("otp_verified"):
+    elif st.session_state.get("face_verified") and not st.session_state.get("otp_verified"):
         st.info("📧 OTP Verification Required")
         if auth.authenticate_admin():  # Assuming you still have OTP verify in auth
             st.session_state.otp_verified = True
@@ -89,7 +89,7 @@ elif menu == "Decrypt and View":
             st.rerun()
 
     # Step 3: View decrypted data
-    if st.session_state.get("face_verified") and st.session_state.get("otp_verified"):
+    else st.session_state.get("face_verified") and st.session_state.get("otp_verified"):
         patient_id = st.text_input("Enter Patient ID")
         if patient_id:
             try:
@@ -172,3 +172,4 @@ elif menu == "Delete Patient Record":
                     st.success(message)
                 else:
                     st.error(message)
+
