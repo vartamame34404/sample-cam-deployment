@@ -185,6 +185,45 @@ def register_new_admin():
         st.session_state.master_verified = False
         st.session_state.master_sent = False
 
+def verify_face_only(threshold: float = 0.6):
+    admins = _load_admins()
+    if not admins:
+        st.error("No admins registered.")
+        return None
+
+    img_file = st.camera_input("Capture face to authenticate")
+    if img_file and st.button("Verify Face"):
+        unknown_emb = _get_embedding_from_bytes(img_file.getvalue())
+        if unknown_emb is None:
+            st.error("No face detected.")
+            return None
+
+        known_embeddings = [np.array(a["face_encoding"]) for a in admins]
+        idx, score = _compare_embeddings(known_embeddings, unknown_emb)
+
+        if score is None or score < threshold:
+            st.error("Face authentication failed.")
+            return None
+
+        verified_admin = admins[idx]
+        st.success(f"Face match found for admin: {verified_admin['name']}")
+        st.session_state._last_sent_otp = send_otp_to(verified_admin["email"])
+        return verified_admin
+    return None
+
+
+def verify_otp_only(email: str):
+    user_otp = st.text_input(f"Enter OTP sent to {email}", type="password")
+    if st.button("Verify OTP"):
+        if user_otp == st.session_state.get("_last_sent_otp"):
+            st.success("OTP verified!")
+            return True
+        else:
+            st.error("Invalid OTP.")
+            return False
+    return False
+
+
 def authenticate_admin_face(threshold: float = 0.6):
     """
     Presents UI to authenticate an admin via face + OTP.
@@ -241,4 +280,5 @@ def authenticate_admin_face(threshold: float = 0.6):
                 return False
 
     return False
+
 
