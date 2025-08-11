@@ -34,5 +34,5 @@ COPY . .
 # Expose port (Render sets $PORT at runtime)
 EXPOSE 8501
 
-# Command to run Streamlit app
-CMD ["streamlit", "run", "streamlit_app.py", "--server.port=$PORT", "--server.address=0.0.0.0"]
+# Use shell form so $PORT gets expanded
+CMD streamlit run streamlit_app.py --server.port=$PORT --server.address=0.0.0.0
