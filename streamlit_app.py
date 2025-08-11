@@ -89,7 +89,7 @@ elif menu == "Decrypt and View":
             st.rerun()
 
     # Step 3: View decrypted data
-    else st.session_state.get("face_verified") and st.session_state.get("otp_verified"):
+    else:
         patient_id = st.text_input("Enter Patient ID")
         if patient_id:
             try:
@@ -172,4 +172,5 @@ elif menu == "Delete Patient Record":
                     st.success(message)
                 else:
                     st.error(message)
+
 
