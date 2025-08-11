@@ -1,0 +1,7 @@
+streamlit
+facenet-pytorch
+pillow
+numpy
+python-dotenv
+mysql-connector-python
+cryptography
