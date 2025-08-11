@@ -1,7 +1,8 @@
-streamlit
+streamlit>=1.38.0
 facenet-pytorch
 pillow
 numpy
 python-dotenv
 mysql-connector-python
 cryptography
+
