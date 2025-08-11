@@ -73,22 +73,15 @@ if menu == "Encrypt and Store":
 elif menu == "Decrypt and View":
     st.subheader("🔓 Decrypt Patient Data")
 
-    # Step 1: Admin face verification
-    if not st.session_state.get("face_verified"):
-        st.info("🔐 Admin Face Verification Required")
+    # Step 1: Admin face verification + OTP (handled in one function)
+    if not st.session_state.get("admin_authenticated"):
+        st.info("🔐 Multi-Factor Admin Authentication Required")
         if auth.authenticate_admin_face():
-            st.session_state.face_verified = True
-            st.rerun()
-
-    # Step 2: OTP verification
-    elif st.session_state.get("face_verified") and not st.session_state.get("otp_verified"):
-        st.info("📧 OTP Verification Required")
-        if auth.authenticate_admin():  # Assuming you still have OTP verify in auth
-            st.session_state.otp_verified = True
+            st.session_state.face_verified = True  # Optional clarity
             st.success("✅ Multi-Factor Admin Authentication Complete")
             st.rerun()
 
-    # Step 3: View decrypted data
+    # Step 2: View decrypted data
     else:
         patient_id = st.text_input("Enter Patient ID")
         if patient_id:
@@ -145,23 +138,16 @@ elif menu == "Register Admin":
 elif menu == "Delete Patient Record":
     st.subheader("🗑️ Delete Patient Data")
 
-    # Step 1: Admin face verification
-    if not st.session_state.get("face_verified"):
-        st.info("🔐 Admin Face Verification Required")
+    # Step 1: Admin face verification + OTP (handled in one function)
+    if not st.session_state.get("admin_authenticated"):
+        st.info("🔐 Multi-Factor Admin Authentication Required")
         if auth.authenticate_admin_face():
-            st.session_state.face_verified = True
-            st.rerun()
-
-    # Step 2: OTP verification
-    if st.session_state.get("face_verified") and not st.session_state.get("otp_verified"):
-        st.info("📧 OTP Verification Required")
-        if auth.authenticate_admin():
-            st.session_state.otp_verified = True
+            st.session_state.face_verified = True  # Optional clarity
             st.success("✅ Multi-Factor Admin Authentication Complete")
             st.rerun()
 
-    # Step 3: Delete record
-    if st.session_state.get("face_verified") and st.session_state.get("otp_verified"):
+    # Step 2: Delete record
+    else:
         patient_id = st.text_input("Enter Patient ID to Delete")
         if st.button("Delete Record"):
             if not patient_id:
@@ -172,5 +158,6 @@ elif menu == "Delete Patient Record":
                     st.success(message)
                 else:
                     st.error(message)
+
 
 
