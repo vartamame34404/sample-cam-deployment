@@ -11,6 +11,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# ---------------- Environment Variables ----------------
+MASTER_KEY = os.getenv("MASTER_KEY")
+if not MASTER_KEY:
+    raise ValueError("MASTER_KEY is not set in environment variables!")
+
 # ---------------- Database Connection ----------------
 def get_db_connection():
     mysql_url = os.getenv("MYSQL_URL")
@@ -33,7 +38,7 @@ def get_db_connection():
             database=os.getenv("DB_NAME"),
         )
 
-# ---------------- AES Key Derivation ----------------
+# ---------------- Key Derivation ----------------
 def derive_key_from_dna(dna_sequence: str):
     dna_bytes = dna_sequence.encode()
     salt = b"static_salt_for_demo"  # ⚠ Replace with secure random salt in production
@@ -45,6 +50,17 @@ def derive_key_from_dna(dna_sequence: str):
         backend=default_backend()
     )
     return kdf.derive(dna_bytes)
+
+def get_master_aes_key():
+    """Derive a 32-byte AES key from MASTER_KEY string."""
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=b"master_salt",  # different salt than DNA
+        iterations=100000,
+        backend=default_backend()
+    )
+    return kdf.derive(MASTER_KEY.encode())
 
 # ---------------- AES Encrypt / Decrypt ----------------
 def encrypt_data(plain_text: str, key: bytes):
@@ -67,20 +83,25 @@ def decrypt_data(cipher_text: str, key: bytes):
     decrypted = unpadder.update(decrypted_padded) + unpadder.finalize()
     return decrypted.decode()
 
-# ---------------- Store Patient Data (Two Tables) ----------------
+# ---------------- Store Patient Data ----------------
 def store_patient_data(patient_id, full_name, email, contact, dob, gender, address, dna_sequence):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    key = derive_key_from_dna(dna_sequence)
+    # Step 1: Derive patient-specific AES key from DNA
+    patient_key = derive_key_from_dna(dna_sequence)
 
-    encrypted_name = encrypt_data(full_name, key)
-    encrypted_email = encrypt_data(email, key)
-    encrypted_contact = encrypt_data(contact, key)
-    encrypted_dob = encrypt_data(dob, key)
-    encrypted_gender = encrypt_data(gender, key)
-    encrypted_address = encrypt_data(address, key)
-    encrypted_dna = encrypt_data(dna_sequence, key)
+    # Step 2: Encrypt patient data with patient-specific key
+    encrypted_name = encrypt_data(full_name, patient_key)
+    encrypted_email = encrypt_data(email, patient_key)
+    encrypted_contact = encrypt_data(contact, patient_key)
+    encrypted_dob = encrypt_data(dob, patient_key)
+    encrypted_gender = encrypt_data(gender, patient_key)
+    encrypted_address = encrypt_data(address, patient_key)
+
+    # Step 3: Encrypt DNA with master key
+    master_key = get_master_aes_key()
+    encrypted_dna = encrypt_data(dna_sequence, master_key)
 
     now = datetime.datetime.utcnow()
 
@@ -106,7 +127,7 @@ def store_patient_data(patient_id, full_name, email, contact, dob, gender, addre
     conn.close()
     return True
 
-# ---------------- Retrieve and Decrypt (Auto DNA from sequence table) ----------------
+# ---------------- Retrieve and Decrypt ----------------
 def retrieve_and_decrypt(patient_id):
     conn = get_db_connection()
     cursor = conn.cursor(dictionary=True)
@@ -120,18 +141,18 @@ def retrieve_and_decrypt(patient_id):
 
     encrypted_dna = seq_row["dna_sequence"]
 
+    # Step 2: Decrypt DNA using master key
+    master_key = get_master_aes_key()
     try:
-        # Step 2: Temporary key from encrypted DNA
-        temp_key = derive_key_from_dna(encrypted_dna)
-        # Step 3: Decrypt to get original DNA
-        dna_sequence = decrypt_data(encrypted_dna, temp_key)
-        # Step 4: Final AES key from decrypted DNA
-        key = derive_key_from_dna(dna_sequence)
+        dna_sequence = decrypt_data(encrypted_dna, master_key)
     except Exception:
         conn.close()
         return None
 
-    # Step 5: Get patient data from patient_data table
+    # Step 3: Derive patient-specific AES key from DNA
+    patient_key = derive_key_from_dna(dna_sequence)
+
+    # Step 4: Get patient data
     cursor.execute("SELECT * FROM patient_data WHERE patient_id = %s", (int(patient_id),))
     data_row = cursor.fetchone()
     conn.close()
@@ -141,19 +162,19 @@ def retrieve_and_decrypt(patient_id):
 
     try:
         return {
-            "full_name": decrypt_data(data_row["full_name"], key),
-            "email": decrypt_data(data_row["email"], key),
-            "contact_number": decrypt_data(data_row["contact_number"], key),
-            "dob": decrypt_data(data_row["dob"], key),
-            "gender": decrypt_data(data_row["gender"], key),
-            "address": decrypt_data(data_row["address"], key),
+            "full_name": decrypt_data(data_row["full_name"], patient_key),
+            "email": decrypt_data(data_row["email"], patient_key),
+            "contact_number": decrypt_data(data_row["contact_number"], patient_key),
+            "dob": decrypt_data(data_row["dob"], patient_key),
+            "gender": decrypt_data(data_row["gender"], patient_key),
+            "address": decrypt_data(data_row["address"], patient_key),
             "created_at": data_row["created_at"],
             "updated_at": data_row["updated_at"]
         }
     except Exception:
         return None
 
-# ---------------- Delete Patient Record (Both Tables) ----------------
+# ---------------- Delete Patient Record ----------------
 def delete_patient_record(patient_id):
     conn = get_db_connection()
     cursor = conn.cursor()
